@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>人数計測</title>
+    <style>
+        body {
+            width: 1080px; /* ページの幅を指定 */
+            height: 720px; /* ページの高さを指定 */
+            margin: 0 auto; /* ページを中央に配置 */
+            padding: 20px; /* 余白を追加 */
+            border: 1px solid #ccc; /* 境界線を追加 */
+        }
+        img {
+            width: 900px; /* 画像の幅を指定 */
+            height: 600px; /* 画像の高さを指定 */
+            object-fit: cover; /* アスペクト比を保持しつつ指定サイズにフィットさせる */
+        }
+    </style>
+</head>
+<body>
+    <h1>ようこそ！ショッピングモールTARAへ！</h1>
+    <div id="data"></div>
+
+    <script>
+        // 画像フォルダのパス
+        const imageFolder = 'images/';
+
+        // 属性ごとの画像ファイル名のマッピング
+        const attributeImages = {
+            'under_20s_male': 'under20s_male.png',
+            'twenties_male': '20s_male.png',
+            'thirties_male': '30s_male.png',
+            'forties_male': '40s_male.png',
+            'fifties_male': '50s_male.png',
+            'over_sixties_male': 'over60s_male.png',
+            'under_20s_female': 'under20s_female.png',
+            'twenties_female': '20s_female.png',
+            'thirties_female': '30s_female.png',
+            'forties_female': '40s_female.png',
+            'fifties_female': '50s_female.png',
+            'over_sixties_female': 'over60s_female.png',
+            'standby': 'standby.png'
+        };
+
+        // 画像を表示する関数
+        function displayImage(attribute) {
+            const dataElement = document.getElementById("data");
+            if (attribute in attributeImages) {
+                const imagePath = imageFolder + attributeImages[attribute];
+                const imgTag = `<img src="${imagePath}" alt="${attribute}" />`;
+                dataElement.innerHTML = imgTag;
+            } else {
+                dataElement.innerHTML = "画像が見つかりません";
+            }
+        }
+
+        // APIからデータを取得する関数
+        function fetchData(cameraId) {
+            // カメラIDを使用してAPIリクエストを構築
+            const apiUrl = `https://api.mebaru.blue/api/cameras/getLatestCountByFaceCamera?id=${cameraId}`;
+            
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    // データの処理ロジック
+                    if (data.success === "true" && data.message.result) {
+                        const result = data.message.result;
+                        const dataElement = document.getElementById("data");
+
+                        const countDetails = result.count_details;
+
+                        // 各年齢グループの合計人数を計算
+                        const totalPeople = Object.values(countDetails).reduce((acc, count) => acc + count, 0);
+
+                        if (totalPeople === 0) {
+                            // 'standby.png' を表示し、1秒ごとに更新
+                            const standbyImagePath = imageFolder + attributeImages['standby'];
+                            const imgTag = `<img src="${standbyImagePath}" alt="standby" />`;
+                            dataElement.innerHTML = imgTag;
+
+                            // 1秒ごとに表示を更新
+                            setTimeout(() => fetchData(cameraId), 1000);
+                        } else {
+                            // 最も多い数字を探す
+                            let maxCount = 0;
+                            let mostCommonGroups = [];
+
+                            for (const group in countDetails) {
+                                const count = countDetails[group];
+                                if (count > maxCount) {
+                                    maxCount = count;
+                                    mostCommonGroups = [group];
+                                } else if (count === maxCount) {
+                                    mostCommonGroups.push(group);
+                                }
+                            }
+
+                            if (mostCommonGroups.length > 0) {
+                                // ランダムに一つのグループを選択
+                                const randomIndex = Math.floor(Math.random() * mostCommonGroups.length);
+                                const randomGroup = mostCommonGroups[randomIndex];
+                                displayImage(randomGroup);
+                            }
+
+                            // 10秒後に再度データを取得
+                            setTimeout(() => fetchData(cameraId), 10000);
+                        }
+                    } else {
+                        dataElement.innerHTML = "データが見つかりません";
+
+                        // 10秒後に再度データを取得
+                        setTimeout(() => fetchData(cameraId), 10000);
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+
+                    // 10秒後に再度データを取得
+                    setTimeout(() => fetchData(cameraId), 10000);
+                });
+        }
+
+        // クエリパラメータからカメラIDを取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const cameraId = urlParams.get('camera_id');
+
+        // カメラIDを使用してデータを取得
+        fetchData(cameraId);
+    </script>
+</body>
+</html>
